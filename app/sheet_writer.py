@@ -83,7 +83,7 @@ class GoogleSpreadsheet:
             self.worksheet.update_acell(f'H{self.insertion_index}', f'{issue["fields"]["status"]["name"]}')
             self.insertion_index += 1
 
-            # todo add comment
+            # used in order not to exceed quota
             sleep(1)
 
         self.worksheet.update_acell(f'E{self.insertion_index}', time_spent_sum[:-1])
