@@ -13,11 +13,7 @@ class JiraAPI:
     def get_the_last_sprint():
         r = requests.get(ALL_SPRINTS_BY_BOARD_URL, auth=HTTPBasicAuth(USERNAME, PASSWORD))
 
-        if r.status_code != 200 or 'application/json' not in r.headers.get('content-type'):
-            if r.status_code != 200:
-                raise Exception(f'Incorrect status code, expected 200, got {r.status_code}')
-            else:
-                raise Exception('Content type is not json')
+        JiraAPI.check_response(r)
 
         response = r.json()
 
@@ -29,14 +25,18 @@ class JiraAPI:
     def get_issue_of_sprint_by_id(sprint_id):
         r = requests.get(f'{ALL_ISSUES_BY_SPRINTS_ID_URL}/{sprint_id}/issue', auth=HTTPBasicAuth(USERNAME, PASSWORD))
 
-        if r.status_code != 200 or 'application/json' not in r.headers.get('content-type'):
-            if r.status_code != 200:
-                raise Exception(f'Incorrect status code, expected 200, got {r.status_code}')
-            else:
-                raise Exception('Content type is not json')
+        JiraAPI.check_response(r)
 
         response = r.json()
         return response['issues']
+
+    @staticmethod
+    def check_response(response):
+        if response.status_code != 200 or 'application/json' not in response.headers.get('content-type'):
+            if response.status_code != 200:
+                raise Exception(f'Incorrect status code, expected 200, got {response.status_code}')
+            else:
+                raise Exception('Content type is not json')
 
     @property
     def last_sprint_id(self):
