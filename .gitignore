@@ -1,0 +1,6 @@
+venv/
+session/*.json
+app/developers.py
+__pycache__/
+app/__pycache__/
+.idea/
