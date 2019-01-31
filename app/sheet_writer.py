@@ -1,5 +1,6 @@
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
+from time import sleep
 from app.jira_reader import JiraAPI
 from app.developers import developers_list
 
@@ -7,78 +8,94 @@ from app.developers import developers_list
 class GoogleSpreadsheet:
     def __init__(self, name_of_the_spreadsheet='Jira'):
         self.scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
-        self.credentials = ServiceAccountCredentials.from_json_keyfile_name('../session/client_secret.json', self.scope)
+        self.credentials = ServiceAccountCredentials.from_json_keyfile_name('session/client_secret.json', self.scope)
         self.client = gspread.authorize(self.credentials)
         self.name_of_the_spreadsheet = name_of_the_spreadsheet
+        self.insertion_index = 1
 
         self.jira_api = JiraAPI()
+        self.sprint_issues = None
+        self.spread = None
+        self.worksheet = None
+
+    def run(self):
         self.sprint_issues = self.jira_api.sprint_issues
 
         self.spread = self.client.open(self.name_of_the_spreadsheet)
         self.worksheet = self.create_new_worksheet(f'Sprint {self.jira_api.last_sprint_id}')
+        self.fill_the_spreadsheet_in()
 
     def create_new_worksheet(self, title, rows=100, cols=30):
+        return self.spread.add_worksheet(title, rows, cols)
 
-        worksheet = self.spread.add_worksheet(title, rows, cols)
-        # worksheet = spread.get_worksheet(1)
+    def fill_the_spreadsheet_in(self):
+        self.preliminary_preparation()
+        self.fill_developers_in()
+        self.fill_sprint_info_in()
 
-        self.format_spread(self.spread, worksheet.id)
+    def preliminary_preparation(self):
+        self.format_spread()
+        self.worksheet.update_acell(f'A{self.insertion_index}', f'Sprint {self.jira_api.last_sprint_id}')
+        self.insertion_index += 2
 
-        # todo add functions for title, devs
-        worksheet.update_acell('A1', title)
-        worksheet.update_acell('A3', 'Rates per hour')
+    def fill_developers_in(self):
+        self.worksheet.update_acell(f'A{self.insertion_index}', 'Rates per hour')
+        self.insertion_index += 1
 
-        dev_indexes = []
-        for dev, pos in zip(developers_list, range(4, 4 + len(developers_list))):
-            worksheet.update_acell(f'A{pos}', f'{dev}')
-            dev_indexes.append(pos)
-            worksheet.update_acell(f'B{pos}', 1)
+        for dev, pos in zip(developers_list, range(self.insertion_index, self.insertion_index + len(developers_list))):
+            self.worksheet.update_acell(f'A{pos}', f'{dev}')
+            self.worksheet.update_acell(f'B{pos}', 1)
+            self.insertion_index += 1
+
+    def fill_sprint_info_in(self):
+        self.insertion_index += 1
 
         row_to_insert = ['Task', 'Task id', 'Assigned', 'Estimate (h)', 'Time spent (h)', 'Difference', 'Sum', 'Status']
-        worksheet.insert_row(row_to_insert, 8)
+        self.worksheet.insert_row(row_to_insert, self.insertion_index)
+        self.insertion_index += 1
 
-        index_to_insert = 9
         time_spent_sum = '='
         rate_sum = '='
         for issue in self.sprint_issues:
-            worksheet.update_acell(f'A{index_to_insert}', f'{issue["fields"]["summary"]}')
-            worksheet.update_acell(f'B{index_to_insert}', f'{issue["id"]}')
+            self.worksheet.update_acell(f'A{self.insertion_index}', f'{issue["fields"]["summary"]}')
+            self.worksheet.update_acell(f'B{self.insertion_index}', f'{issue["id"]}')
 
             assignee = issue["fields"]["assignee"]["displayName"]
-            worksheet.update_acell(f'C{index_to_insert}', f'{assignee}')
+            self.worksheet.update_acell(f'C{self.insertion_index}', f'{assignee}')
 
             estimated_time = self.convert_seconds_to_hours(issue["fields"]["timetracking"]["originalEstimateSeconds"])
-            worksheet.update_acell(f'D{index_to_insert}', f'{estimated_time}')
+            self.worksheet.update_acell(f'D{self.insertion_index}', f'{estimated_time}')
 
             time_spent = self.convert_seconds_to_hours(issue["fields"]["timetracking"]["timeSpentSeconds"])
-            worksheet.update_acell(f'E{index_to_insert}', '%8.2f' % time_spent)
-            time_spent_sum += f'E{index_to_insert}+'
+            self.worksheet.update_acell(f'E{self.insertion_index}', '%8.2f' % time_spent)
+            time_spent_sum += f'E{self.insertion_index}+'
 
-            worksheet.update_acell(f'F{index_to_insert}', f'=D{index_to_insert}-E{index_to_insert}')
+            self.worksheet.update_acell(f'F{self.insertion_index}', f'=D{self.insertion_index}-E{self.insertion_index}')
 
-            # todo deprive from for
-            for i in range(len(dev_indexes)):
-                if assignee == developers_list[i]:
-                    worksheet.update_acell(f'G{index_to_insert}', f'=B{dev_indexes[i]}*E{index_to_insert}')
-                    rate_sum += f'G{index_to_insert}+'
-                    break
+            try:
+                assignee_cell = self.worksheet.find(assignee)
+                self.worksheet.update_acell(f'G{self.insertion_index}',
+                                            f'=B{assignee_cell.row}*E{self.insertion_index}')
+                rate_sum += f'G{self.insertion_index}+'
+            except gspread.exceptions.CellNotFound:
+                self.worksheet.update_acell(f'G{self.insertion_index}', f'{assignee} is not in the list of developers')
 
-            worksheet.update_acell(f'H{index_to_insert}', f'{issue["fields"]["status"]["name"]}')
-            index_to_insert += 1
+            self.worksheet.update_acell(f'H{self.insertion_index}', f'{issue["fields"]["status"]["name"]}')
+            self.insertion_index += 1
 
-        worksheet.update_acell(f'E{index_to_insert}', time_spent_sum[:-1])
-        worksheet.update_acell(f'G{index_to_insert}', rate_sum[:-1])
+            # todo add comment
+            sleep(1)
 
-        return worksheet
+        self.worksheet.update_acell(f'E{self.insertion_index}', time_spent_sum[:-1])
+        self.worksheet.update_acell(f'G{self.insertion_index}', rate_sum[:-1])
 
-    @staticmethod
-    def format_spread(spread, worksheet_id):
-        spread.batch_update({
+    def format_spread(self):
+        self.spread.batch_update({
             "requests": [
                 {
                     "mergeCells": {
                         "range": {
-                            "sheetId": worksheet_id,
+                            "sheetId": self.worksheet.id,
                             "startRowIndex": 0,
                             "endRowIndex": 1,
                             "startColumnIndex": 0,
@@ -100,7 +117,7 @@ class GoogleSpreadsheet:
                                 }
                         },
                         "range": {
-                            "sheetId": worksheet_id,
+                            "sheetId": self.worksheet.id,
                             "startRowIndex": 0,
                             "endRowIndex": 1,
                             "startColumnIndex": 0,
@@ -112,7 +129,7 @@ class GoogleSpreadsheet:
                 {
                     "updateDimensionProperties": {
                         "range": {
-                            "sheetId": worksheet_id,
+                            "sheetId": self.worksheet.id,
                             "dimension": "COLUMNS",
                             "startIndex": 0,
                             "endIndex": 1
@@ -126,7 +143,7 @@ class GoogleSpreadsheet:
                 {
                     "updateDimensionProperties": {
                         "range": {
-                            "sheetId": worksheet_id,
+                            "sheetId": self.worksheet.id,
                             "dimension": "COLUMNS",
                             "startIndex": 2,
                             "endIndex": 3
@@ -142,7 +159,3 @@ class GoogleSpreadsheet:
     @staticmethod
     def convert_seconds_to_hours(seconds):
         return seconds / 3600
-
-
-if __name__ == '__main__':
-    spread_sheet = GoogleSpreadsheet()
