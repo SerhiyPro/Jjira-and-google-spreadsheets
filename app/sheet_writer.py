@@ -66,8 +66,9 @@ class GoogleSpreadsheet:
             worksheet.update_acell(f'H{index_to_insert}', f'{issue["fields"]["status"]["name"]}')
             index_to_insert += 1
 
-            worksheet.update_acell(f'E{index_to_insert}', time_spent_sum[:-1])
-            worksheet.update_acell(f'G{index_to_insert}', rate_sum[:-1])
+        worksheet.update_acell(f'E{index_to_insert}', time_spent_sum[:-1])
+        worksheet.update_acell(f'G{index_to_insert}', rate_sum[:-1])
+
         return worksheet
 
     @staticmethod

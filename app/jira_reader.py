@@ -13,9 +13,11 @@ class JiraAPI:
     def get_the_last_sprint():
         r = requests.get(ALL_SPRINTS_BY_BOARD_URL, auth=HTTPBasicAuth(USERNAME, PASSWORD))
 
-        # todo inmprove error message
         if r.status_code != 200 or 'application/json' not in r.headers.get('content-type'):
-            raise Exception(f'Incorrect status code, expected 200, got {r.status_code}')
+            if r.status_code != 200:
+                raise Exception(f'Incorrect status code, expected 200, got {r.status_code}')
+            else:
+                raise Exception('Content type is not json')
 
         response = r.json()
 
@@ -28,20 +30,18 @@ class JiraAPI:
         r = requests.get(f'{ALL_ISSUES_BY_SPRINTS_ID_URL}/{sprint_id}/issue', auth=HTTPBasicAuth(USERNAME, PASSWORD))
 
         if r.status_code != 200 or 'application/json' not in r.headers.get('content-type'):
-            raise Exception(f'Incorrect status code, expected 200, got {r.status_code}')
+            if r.status_code != 200:
+                raise Exception(f'Incorrect status code, expected 200, got {r.status_code}')
+            else:
+                raise Exception('Content type is not json')
 
         response = r.json()
         return response['issues']
 
-    #todo change name
     @property
-    def __last_sprint_id(self):
+    def last_sprint_id(self):
         return self.__last_sprint['id']
 
     @property
     def sprint_issues(self):
-        return self.get_issue_of_sprint_by_id(self.__last_sprint_id)
-
-    @property
-    def last_sprint_id(self):
-        return self.__last_sprint_id
+        return self.get_issue_of_sprint_by_id(self.last_sprint_id)
