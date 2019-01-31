@@ -14,15 +14,15 @@ class GoogleSpreadsheet:
         self.jira_api = JiraAPI()
         self.sprint_issues = self.jira_api.sprint_issues
 
+        self.spread = self.client.open(self.name_of_the_spreadsheet)
         self.worksheet = self.create_new_worksheet(f'Sprint {self.jira_api.last_sprint_id}')
 
     def create_new_worksheet(self, title, rows=100, cols=30):
-        spread = self.client.open(self.name_of_the_spreadsheet)
 
-        worksheet = self.client.open(self.name_of_the_spreadsheet).add_worksheet(title, rows, cols)
+        worksheet = self.spread.add_worksheet(title, rows, cols)
         # worksheet = spread.get_worksheet(1)
 
-        self.update_spread(spread, worksheet.id)
+        self.format_spread(self.spread, worksheet.id)
 
         # todo add functions for title, devs
         worksheet.update_acell('A1', title)
@@ -72,7 +72,7 @@ class GoogleSpreadsheet:
         return worksheet
 
     @staticmethod
-    def update_spread(spread, worksheet_id):
+    def format_spread(spread, worksheet_id):
         spread.batch_update({
             "requests": [
                 {
