@@ -18,7 +18,7 @@ class GoogleSpreadsheet:
         self.spread = None
         self.worksheet = None
 
-    def run(self):
+    def write_info_about_the_last_sprint(self):
         self.sprint_issues = self.jira_api.sprint_issues
 
         self.spread = self.client.open(self.name_of_the_spreadsheet)
@@ -29,11 +29,11 @@ class GoogleSpreadsheet:
         return self.spread.add_worksheet(title, rows, cols)
 
     def fill_the_spreadsheet_in(self):
-        self.preliminary_preparation()
+        self.preliminary_preparation_for_last_sprint()
         self.fill_developers_in()
-        self.fill_sprint_info_in()
+        self.fill_last_sprint_info_in()
 
-    def preliminary_preparation(self):
+    def preliminary_preparation_for_last_sprint(self):
         self.format_spread()
         self.worksheet.update_acell(f'A{self.insertion_index}', f'Sprint {self.jira_api.last_sprint_id}')
         self.insertion_index += 2
@@ -47,7 +47,7 @@ class GoogleSpreadsheet:
             self.worksheet.update_acell(f'B{pos}', 1)
             self.insertion_index += 1
 
-    def fill_sprint_info_in(self):
+    def fill_last_sprint_info_in(self):
         self.insertion_index += 1
 
         row_to_insert = ['Task', 'Task id', 'Assigned', 'Estimate (h)', 'Time spent (h)', 'Difference', 'Sum', 'Status']
